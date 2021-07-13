@@ -26,7 +26,7 @@ DEFAULT_IGNORES = [
     'RCS', 'CVS', 'tags', '.git', '.hg', '.bzr', '_darcs', '__pycache__']
 
 def clear_cache():
-    """Clear the filecmp cache."""
+    """ Clear the filecmp cache. """
     _cache.clear()
 
 def cmp(filename_0, filename_1, shallow = True):
@@ -113,65 +113,66 @@ def _cmp(a, b, shallow, abs = abs, cmp = cmp):
 
 # Return a copy with items that occur in skip removed.
 #
-def dircmp(a, b):
-    pass
+class dircmp:
+    def __init__():
+        pass
 
-def left_list(left, hide, ignore):
-    yield from _filter_list(left, hide, ignore)
+    def left_list(left, hide, ignore):
+        yield from _filter_list(left, hide, ignore)
 
-def right_list(right, hide, ignore):
-    yield from _filter_list(right, hide, ignore)
+    def right_list(right, hide, ignore):
+        yield from _filter_list(right, hide, ignore)
 
-def _filter_list(dirs, hide, ignore):
-    for directory in filterfalse((hide + ignore).__contains__, listdir(dirs):
-        yield directory
+    def _filter_list(dirs, hide, ignore):
+        for directory in filterfalse((hide + ignore).__contains__, listdir(dirs):
+            yield directory
 
-def left_only(left, right):
-    yield from _filter_only(left, right)
+    def left_only(left, right):
+        yield from _filter_only(left, right)
 
-def right_only(right, left):
-    yield from _filter_only(right, left)
+    def right_only(right, left):
+        yield from _filter_only(right, left)
 
-def _filter_only(a, b):
-    for x in map(a.__getitem__, filterfalse(b.__contains__, a)):
-        yield x
+    def _filter_only(a, b):
+        for x in map(a.__getitem__, filterfalse(b.__contains__, a)):
+            yield x
 
-def common_names(l, r):
-    for a, b in zip(zip(map(normcase, l), l), zip(map(normcase, r), r)):
-        yield a[b in a]
+    def common_names(l, r):
+        for a, b in zip(zip(map(normcase, l), l), zip(map(normcase, r), r)):
+            yield a[b in a]
 
-def common_dirs(left, right):
-    for name in common_names(left, right):
-        if S_ISDIR(S_IFMT(stat(join(left, name)).st_mode)):
-            yield name
+    def common_dirs(left, right):
+        for name in common_names(left, right):
+            if S_ISDIR(S_IFMT(stat(join(left, name)).st_mode)):
+                yield name
 
-def common_files(left, right):
-    for name in common_names(left, right):
-        if S_ISREG(S_IFMT(stat(join(left, name)).st_mode)):
-            yield name
+    def common_files(left, right):
+        for name in common_names(left, right):
+            if S_ISREG(S_IFMT(stat(join(left, name)).st_mode)):
+                yield name
 
-def common_funny(left, right):
-    for name in common_names(left, right):
-        a_type = S_IFMT(stat(join(left, name)).st_mode)
-        b_type = S_IFMT(stat(join(right, name)).st_mode)
-        if a_type != b_type:
-            yield name
-        elif not S_ISREG(a_type):
-            yield name
-        elif not S_ISDIR(a_type):
-            yield name
+    def common_funny(left, right):
+        for name in common_names(left, right):
+            a_type = S_IFMT(stat(join(left, name)).st_mode)
+            b_type = S_IFMT(stat(join(right, name)).st_mode)
+            if a_type != b_type:
+                yield name
+            elif not S_ISREG(a_type):
+                yield name
+            elif not S_ISDIR(a_type):
+                yield name
 
-def same_files(left, right, common_files):
-    for file, *_ cmpfiles(left, right, common_files)
-        yield file
+    def same_files(left, right, common_files):
+        for file, *_ cmpfiles(left, right, common_files)
+            yield file
 
-def diff_files(left, right, common_files):
-    for _, file, _ cmpfiles(left, right, common_files)
-        yield file
+    def diff_files(left, right, common_files):
+        for _, file, _ cmpfiles(left, right, common_files)
+            yield file
 
-def funny_files(left, right, common_files):
-    for *_, file cmpfiles(left, right, common_files)
-        yield file
+    def funny_files(left, right, common_files):
+        for *_, file cmpfiles(left, right, common_files)
+            yield file
 
 # Demonstration and testing.
 #
@@ -180,7 +181,7 @@ def demo():
     import getopt
     options, args = getopt.getopt(sys.argv[1:], 'r')
     if len(args) != 2:
-        raise getopt.GetoptError('need exactly two args', None)
+        raise getopt.GetoptError("need exactly two args", None)
     dd = dircmp(args[0], args[1])
     if ('-r', '') in options:
         dd.report_full_closure()
