@@ -14,8 +14,6 @@ from os import stat, pardir, curdir, listdir
 from os.path import normcase, join
 from stat import S_IFREG, S_IFMT, S_ISDIR, S_ISREG
 from itertools import filterfalse
-from types import GenericAlias
-from time import time
 
 __all__ = ['clear_cache', 'cmp', 'dircmp', 'cmpfiles', 'DEFAULT_IGNORES']
 
@@ -53,7 +51,7 @@ def cmp(filename_0, filename_1, shallow = True):
 
     metadata_0 = _metadata(stat(filename_0))
     metadata_1 = _metadata(stat(filename_1))
-    if metadata_0[0] != S_IFREG or metadata_2[0] != S_IFREG:
+    if metadata_0[0] != S_IFREG or metadata_1[0] != S_IFREG:
         return False
     if shallow and metadata_0 == metadata_1:
         return True
@@ -93,10 +91,13 @@ def cmpfiles(a, b, common, shallow = True):
 
     """
     for x in common:
-        result = (None, None, None)
-        result[_cmp(join(a, x), join(b, x), shallow)] = x
-        yield result
-
+        case = _cmp(join(a, x), join(b, x), shallow)
+        if case == 0:
+            yield (x, None, None)
+        elif case == 1:
+            yield (None, x, None)
+        elif case == 2:
+            yield (None, None, x)
 
 # Compare two files.
 # Return:
@@ -110,51 +111,65 @@ def _cmp(a, b, shallow, abs = abs, cmp = cmp):
     except OSError:
         return 2
 
+def _filter_list(dirs, hide, ignore):
+    for directory in filterfalse((hide + ignore).__contains__, listdir(dirs)):
+        yield directory
+
+def _filter_only(a, b):
+    for x in map(a.__getitem__, filterfalse(b.__contains__, a)):
+        yield x
+
 
 # Return a copy with items that occur in skip removed.
 #
 class dircmp:
-    def __init__():
-        pass
+    def __init__(self, left, right, *args):
+        self.left, self.right = left, right
+        print(args, len(args))
+        self.hide = [curdir, pardir] if len(args) == 0 else args[0]
+        self.ignore = DEFAULT_IGNORES if len(args) < 2 else args[1]
 
-    def left_list(left, hide, ignore):
-        yield from _filter_list(left, hide, ignore)
+    def _left_list(self):
+        yield from _filter_list(self.left, self.hide, self.ignore)
 
-    def right_list(right, hide, ignore):
-        yield from _filter_list(right, hide, ignore)
+    def _right_list(self):
+        yield from _filter_list(self.right, self.hide, self.ignore)
 
-    def _filter_list(dirs, hide, ignore):
-        for directory in filterfalse((hide + ignore).__contains__, listdir(dirs):
-            yield directory
+    def _left_only(self):
+        left_zip = dict(zip(map(normcase, self._left_list()), self._left_list()))
+        # right_zip = zip(map(normcase, self._right_list()), self._right_list())
+        for left, right in zip(left_zip, map(normcase, self._right_list())):
+            if not (right in left_zip):
+                yield left_zip[left]
 
-    def left_only(left, right):
-        yield from _filter_only(left, right)
+    def _right_only(self):
+        # left_zip = zip(map(normcase, self._left_list()), self._left_list())
+        right_zip = dict(zip(map(normcase, self._right_list()), self._right_list()))
+        for left, right in zip(map(normcase, self._left_list()), right_zip):
+            if not (left in right_zip):
+                yield right_zip[right]
 
-    def right_only(right, left):
-        yield from _filter_only(right, left)
+    def _common(self):
+        left_zip = dict(zip(map(normcase, self._left_list()), self._left_list()))
+        # right_zip = zip(map(normcase, self._right_list()), self._right_list())
+        for left, right in zip(left_zip, map(normcase, self._right_list())):
+            if right in left_zip:
+                yield left_zip[right]
 
-    def _filter_only(a, b):
-        for x in map(a.__getitem__, filterfalse(b.__contains__, a)):
-            yield x
-
-    def common_names(l, r):
-        for a, b in zip(zip(map(normcase, l), l), zip(map(normcase, r), r)):
-            yield a[b in a]
-
-    def common_dirs(left, right):
-        for name in common_names(left, right):
-            if S_ISDIR(S_IFMT(stat(join(left, name)).st_mode)):
+    def _common_dirs(self):
+        for name in self._common():
+            if S_ISDIR(S_IFMT(stat(join(self.left, name)).st_mode)):
                 yield name
 
-    def common_files(left, right):
-        for name in common_names(left, right):
-            if S_ISREG(S_IFMT(stat(join(left, name)).st_mode)):
+    def _common_files(self):
+        for name in self._common():
+            if S_ISREG(S_IFMT(stat(join(self.left, name)).st_mode)):
                 yield name
 
-    def common_funny(left, right):
-        for name in common_names(left, right):
-            a_type = S_IFMT(stat(join(left, name)).st_mode)
-            b_type = S_IFMT(stat(join(right, name)).st_mode)
+    def _common_funny(self):
+        for name in self._common():
+            a_type = S_IFMT(stat(join(self.left, name)).st_mode)
+            b_type = S_IFMT(stat(join(self.right, name)).st_mode)
             if a_type != b_type:
                 yield name
             elif not S_ISREG(a_type):
@@ -162,31 +177,102 @@ class dircmp:
             elif not S_ISDIR(a_type):
                 yield name
 
-    def same_files(left, right, common_files):
-        for file, *_ cmpfiles(left, right, common_files)
+    def _same_files(self):
+        for file, *_ in cmpfiles(self.left, self.right, self._common_files()):
             yield file
 
-    def diff_files(left, right, common_files):
-        for _, file, _ cmpfiles(left, right, common_files)
+    def _diff_files(self):
+        for _, file, _ in cmpfiles(self.left, self.right, self._common_files()):
             yield file
 
-    def funny_files(left, right, common_files):
-        for *_, file cmpfiles(left, right, common_files)
+    def _funny_files(self):
+        for *_, file in cmpfiles(self.left, self.right, self._common_files()):
             yield file
+    
+    def _subdirs(self):
+        for directory in self._common_dirs():
+            yield (directory, dircmp(
+                join(self.left, directory), join(self.right, directory),
+                self.ignore, self.hide))
+    
+    def recurs_subdirs(self):
+        if self._subdirs():
+            for directory, dircmp_object in self._subdirs():
+                yield dircmp_object
+                for inner_dircmp_object in dircmp_object.recurs_subdirs():
+                    yield inner_dircmp_object
+        else:
+            yield self
+    
+    methodmap = {"subdirs":_subdirs, "same_files": _same_files,
+                 "diff_files": _diff_files, "funny_files": _funny_files,
+                 "common_dirs": _common_dirs, "common_files": _common_files,
+                 "common_funny": _common_funny, "common": _common,
+                 "left_only": _left_only, "right_only": _right_only,
+                 "left_list": _left_list, "right_list": _right_list}
+    
+    def __getattr__(self, attr):
+        if attr not in self.methodmap:
+            raise AttributeError(attr)
+        yield from self.methodmap[attr](self)
+    
+    def report(self): # Print a report on the differences between a and b
+        # Output format is purposely lousy
+        print(f" Differencing {self.left} {self.right}")
+        if self.left_only:
+            print(f"Only in {self.left} :")
+            for x in self.left_only:
+                print('\t', x)
+        if self.right_only:
+            print(f"Only in {self.right} :")
+            for x in self.right_only:
+                print('\t', x)
+        if self.same_files:
+            print("Identical files :")
+            for x in self.same_files:
+                print('\t', x)
+        if self.diff_files:
+            print("Differing files :")
+            for x in self.diff_files:
+                print('\t', x)
+        if self.funny_files:
+            print("Trouble with common files :")
+            for x in self.funny_files:
+                print('\t', x)
+        if self.common_dirs:
+            print("Common subdirectories :")
+            for x in self.common_dirs:
+                print('\t', x)
+        if self.common_funny:
+            print("Common funny cases :")
+            for x in self.common_funny:
+                print('\t', x)
+
+    def report_partial_closure(self): # Print reports on self and on subdirs
+        self.report()
+        for _, dircmp_object in self.subdirs():
+            print()
+            dircmp_object.report()
+
+    def report_full_closure(self): # Report on self and subdirs recursively
+        self.report()
+        for dircmp_object in self.recurs_subdirs():
+            print()
+            dircmp_object.report_full_closure()
 
 # Demonstration and testing.
 #
 def demo():
-    import sys
-    import getopt
-    options, args = getopt.getopt(sys.argv[1:], 'r')
+    from sys import argv
+    from getopt import getopt, GetoptError
+    options, args = getopt(argv[1:], 'r')
     if len(args) != 2:
-        raise getopt.GetoptError("need exactly two args", None)
-    dd = dircmp(args[0], args[1])
+        raise GetoptError("need exactly two args", None)
+    directory_comparision = dircmp(args[0], args[1])
     if ('-r', '') in options:
-        dd.report_full_closure()
+        directory_comparision.report_full_closure()
     else:
-        dd.report()
+        directory_comparision.report()
 
 if __name__ == '__main__':
     demo()
